@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import Filter from "./components/Filter";
 import PersonForm from "./components/PersonForm";
 import Persons from "./components/Persons";
+import phonebookService from "./services/phonebook";
 
 const App = () => {
   const [persons, setPersons] = useState([]);
@@ -10,36 +10,57 @@ const App = () => {
   const [newNumber, setNewNumber] = useState("");
   const [filter, setFilter] = useState("");
 
+  const personsToShow = persons.filter((person) =>
+    person.name.toLowerCase().startsWith(filter.toLowerCase().trim())
+  );
+
   useEffect(() => {
-    axios
-      .get("http://localhost:3001/persons")
-      .then((response) => setPersons(response.data));
+    phonebookService.getAll().then((allPersons) => setPersons(allPersons));
   }, []);
 
   const handleNameChange = (event) => setNewName(event.target.value);
   const handleNumberChange = (event) => setNewNumber(event.target.value);
   const handleFilterChange = (event) => setFilter(event.target.value);
 
-  const saveName = (event) => {
+  const savePerson = (event) => {
     event.preventDefault();
-    const nameExists = persons.some((person) => person.name === newName.trim());
-    if (nameExists) {
-      alert(`${newName} is already added to phonebook`);
+    const found = persons.find((person) => person.name === newName.trim());
+
+    if (found !== undefined) {
+      if (
+        window.confirm(
+          `${newName} is already added to phonebook, replace the old number with a new one?`
+        )
+      ) {
+        updatePerson(found);
+      }
     } else {
-      const nameToSave = {
+      const personToSave = {
         name: newName,
         number: newNumber,
-        id: persons.length + 1,
       };
-      setPersons(persons.concat(nameToSave));
-      setNewName("");
-      setNewNumber("");
+      phonebookService.create(personToSave).then((savedPerson) => {
+        setPersons(persons.concat(savedPerson));
+        setNewName("");
+        setNewNumber("");
+      });
     }
   };
 
-  const personsToShow = persons.filter((person) =>
-    person.name.toLowerCase().startsWith(filter.toLowerCase().trim())
-  );
+  const updatePerson = (person) => {
+    const updatedPerson = { ...person, number: newNumber };
+    phonebookService.update(person.id, updatedPerson).then((returnedPerson) => {
+      setPersons(persons.map((p) => (p.id === person.id ? returnedPerson : p)));
+    });
+  };
+
+  const deletePerson = (personToDelete) => {
+    if (window.confirm(`Delete ${personToDelete.name}?`)) {
+      phonebookService.deletePerson(personToDelete.id).then((response) => {
+        setPersons(persons.filter((person) => person.id !== personToDelete.id));
+      });
+    }
+  };
 
   return (
     <div>
@@ -51,10 +72,10 @@ const App = () => {
         newNumber={newNumber}
         onNameChange={handleNameChange}
         onNumberChange={handleNumberChange}
-        onSubmit={saveName}
+        onSubmit={savePerson}
       />
       <h3>Numbers</h3>
-      <Persons persons={personsToShow} />
+      <Persons persons={personsToShow} handleDeletePerson={deletePerson} />
     </div>
   );
 };
