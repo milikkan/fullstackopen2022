@@ -3,12 +3,14 @@ import Filter from "./components/Filter";
 import PersonForm from "./components/PersonForm";
 import Persons from "./components/Persons";
 import phonebookService from "./services/phonebook";
+import Notification from "./components/Notification";
 
 const App = () => {
   const [persons, setPersons] = useState([]);
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState("");
   const [filter, setFilter] = useState("");
+  const [notification, setNotification] = useState(null);
 
   const personsToShow = persons.filter((person) =>
     person.name.toLowerCase().startsWith(filter.toLowerCase().trim())
@@ -41,17 +43,39 @@ const App = () => {
       };
       phonebookService.create(personToSave).then((savedPerson) => {
         setPersons(persons.concat(savedPerson));
+        setNotification({
+          message: `Added ${savedPerson.name}`,
+          type: "success",
+        });
         setNewName("");
         setNewNumber("");
+        setTimeout(() => setNotification(null), 3000);
       });
     }
   };
 
   const updatePerson = (person) => {
     const updatedPerson = { ...person, number: newNumber };
-    phonebookService.update(person.id, updatedPerson).then((returnedPerson) => {
-      setPersons(persons.map((p) => (p.id === person.id ? returnedPerson : p)));
-    });
+    phonebookService
+      .update(person.id, updatedPerson)
+      .then((returnedPerson) => {
+        setPersons(
+          persons.map((p) => (p.id === person.id ? returnedPerson : p))
+        );
+        setNotification({
+          message: `Updated number for ${person.name}`,
+          type: "success",
+        });
+        setTimeout(() => setNotification(null), 3000);
+      })
+      .catch((error) => {
+        setNotification({
+          message: `Information of ${person.name} has already been removed from server`,
+          type: "error",
+        });
+        setPersons(persons.filter((p) => p.id !== person.id));
+        setTimeout(() => setNotification(null), 3000);
+      });
   };
 
   const deletePerson = (personToDelete) => {
@@ -65,6 +89,7 @@ const App = () => {
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification notification={notification} />
       <Filter filter={filter} onChange={handleFilterChange} />
       <h3>add a new</h3>
       <PersonForm
